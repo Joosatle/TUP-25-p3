@@ -73,6 +73,16 @@ public class CarritoService
         var existenteLocal = ProductosEnCarrito.FirstOrDefault(p => p.Id == producto.Id);
         int nuevaCantidad = (existenteLocal?.Cantidad ?? 0) + 1;
 
+        //. Descontar el stock del producto en el backend
+        var stockResponse = await _http.PutAsync($"/productos/{producto.Id}/descontarStock?cantidad=1", null);
+
+        if (!stockResponse.IsSuccessStatusCode)
+        {
+            string errorContent = await stockResponse.Content.ReadAsStringAsync();
+            Console.WriteLine($"ERROR: No se pudo descontar el stock. {stockResponse.StatusCode} - {errorContent}");
+            return; // ⚠️ No seguimos si no se puede descontar
+        }
+
         // Llama al endpoint PUT /carritos/{id}/{productoId}?cantidad={cantidad}
         var response = await _http.PutAsync($"/carritos/{carritoId}/{producto.Id}?cantidad={nuevaCantidad}", null);
 
@@ -117,7 +127,7 @@ public class CarritoService
 
     public async Task DescontarStockAsync(int productoId, int cantidad)
     {
-        var response = await httpClient.PutAsync(
+        var response = await _http.PutAsync(
             $"productos/{productoId}/descontarStock?cantidad={cantidad}", null);
 
         if (!response.IsSuccessStatusCode)
@@ -217,15 +227,6 @@ public class CarritoService
         }
     }
 
-
-    // --- MANTENIENDO TU MÉTODO ORIGINAL DE LIMPIAR ---
-    // Este método solo limpia la lista local, no el carrito en el backend.
-    // Para limpiar el carrito del backend, necesitarías un endpoint y una llamada PUT/DELETE específica.
-    public void LimpiarCarrito()
-    {
-        ProductosEnCarrito.Clear();
-        OnChange?.Invoke();
-    }
 
     public decimal CalcularTotal() =>
         ProductosEnCarrito.Sum(p => p.Precio * p.Cantidad);

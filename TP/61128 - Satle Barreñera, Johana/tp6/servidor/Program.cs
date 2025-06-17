@@ -82,41 +82,50 @@ app.MapGet("/carritos/{id}", (string id) =>
     carritos.ContainsKey(id) ? Results.Ok(carritos[id]) : Results.NotFound());
 
 // DELETE /carritos/{id}
-app.MapDelete("/carritos/{id}", (string id) => {
-    if (carritos.Remove(id))
-        return Results.Ok();
-    return Results.NotFound();
+app.MapDelete("/carritos/{id}", async (string id, TiendaContext db) =>
+{
+    if (!carritos.TryGetValue(id, out var items))
+        return Results.NotFound();
+
+    // Devolver el stock de todos los items en el carrito
+    foreach (var item in items)
+    {
+        var producto = await db.Productos.FindAsync(item.ProductoId);
+        if (producto != null)
+        {
+            producto.Stock += item.Cantidad;
+        }
+    }
+
+    await db.SaveChangesAsync();
+
+    // Eliminar el carrito en memoria
+    carritos.Remove(id);
+
+    return Results.Ok();
 });
 
 // PUT /carritos/{id}/confirmar
-app.MapPut("/carritos/{id}/confirmar", async (string id, ClienteDTO cliente, TiendaContext db) => {
+app.MapPut("/carritos/{id}/confirmar", async (string id, ClienteDTO cliente, TiendaContext db) =>
+{
     if (!carritos.TryGetValue(id, out var items)) return Results.NotFound();
 
-    var compra = new Compra {
+    var compra = new Compra
+    {
         NombreCliente = cliente.Nombre,
         ApellidoCliente = cliente.Apellido,
         EmailCliente = cliente.Email,
         Total = items.Sum(i => i.Cantidad * i.PrecioUnitario),
         Fecha = DateTime.Now,
-        Items = items.Select(i => new ItemCompra {
+        Items = items.Select(i => new ItemCompra
+        {
             ProductoId = i.ProductoId,
             Cantidad = i.Cantidad,
             PrecioUnitario = i.PrecioUnitario
         }).ToList()
     };
-    
 
-    app.MapPut("/productos/{id}/descontarStock", async ([FromRoute] int id, [FromQuery] int cantidad, TiendaContext db) =>
-    {
-        var producto = await db.Productos.FindAsync(id);
-        if (producto == null) return Results.NotFound();
 
-        if (producto.Stock < cantidad)
-            return Results.BadRequest("Producto no encontrado");
-        await db.SaveChangesAsync();
-
-        return Results.Ok(producto);
-    });
 
     foreach (var item in items)
     {
@@ -131,6 +140,33 @@ app.MapPut("/carritos/{id}/confirmar", async (string id, ClienteDTO cliente, Tie
     carritos.Remove(id);
     return Results.Ok();
 });
+
+// PUT /carritos/{id}/{descontarStock}
+app.MapPut("/productos/{id}/descontarStock", async (int id, int cantidad, TiendaContext db) =>
+{
+    var producto = await db.Productos.FindAsync(id);
+    if (producto == null) return Results.NotFound("Producto no encontrado");
+
+    if (producto.Stock < cantidad)
+        return Results.BadRequest("Stock insuficiente");
+
+    producto.Stock -= cantidad;
+    await db.SaveChangesAsync();
+    return Results.Ok(producto);
+});
+
+// PUT /carritos/{id}/{SumarStock}
+app.MapPut("/productos/{id}/sumarStock", async (int id, int cantidad, TiendaContext db) =>
+{
+    var producto = await db.Productos.FindAsync(id);
+    if (producto == null) return Results.NotFound("Producto no encontrado");
+
+    producto.Stock += cantidad;
+    await db.SaveChangesAsync();
+    return Results.Ok(producto);
+});
+
+
 
 // PUT /carritos/{id}/{producto}
 app.MapPut("/carritos/{id}/{productoId}", async (string id, int productoId, int cantidad, TiendaContext db) => {
@@ -154,10 +190,22 @@ app.MapPut("/carritos/{id}/{productoId}", async (string id, int productoId, int 
 });
 
 // DELETE /carritos/{id}/{producto}
-app.MapDelete("/carritos/{id}/{productoId}", (string id, int productoId) => {
+app.MapDelete("/carritos/{id}/{productoId}", async (string id, int productoId, TiendaContext db) =>
+{
     if (!carritos.TryGetValue(id, out var items)) return Results.NotFound();
+
     var item = items.FirstOrDefault(i => i.ProductoId == productoId);
-    if (item != null) items.Remove(item);
+    if (item != null)
+    {
+        // Devolver el stock
+        var producto = await db.Productos.FindAsync(productoId);
+        if (producto != null)
+        {
+            producto.Stock += item.Cantidad;
+            await db.SaveChangesAsync();
+        }
+        items.Remove(item);
+    }
     return Results.Ok();
 });
 

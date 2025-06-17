@@ -46,8 +46,6 @@ else
 
         <h4 class="total-carrito">Total: $@CarritoService.CalcularTotal()</h4>
 
-        <button class="btn-vaciar" @onclick="LimpiarCarritoClick">Vaciar carrito 🧹</button>
-
         <a href="/confirmacion" class="btn btn-success" style="margin-left: 10px;">Confirmar compra ✅</a>
     </div>
 }
@@ -82,10 +80,5 @@ else
     private async Task EliminarProductoClick(int productoId)
     {
         await CarritoService.EliminarProducto(productoId); // Ahora es asíncrono
-    }
-
-    private void LimpiarCarritoClick()
-    {
-        CarritoService.LimpiarCarrito(); // Este método es síncrono en la versión que te di.
     }
 }

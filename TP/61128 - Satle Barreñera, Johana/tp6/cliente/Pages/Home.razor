@@ -84,8 +84,11 @@ else
         await ApplySearch(); // Vuelve a cargar sin filtro
     }
 
-    private async Task AgregarAlCarrito(cliente.Modelos.Producto producto)
+   private async Task AgregarAlCarrito(cliente.Modelos.Producto producto)
     {
         await CarritoService.AgregarProductoAsync(producto);
+
+        // 🔄 Recargar productos para ver el stock actualizado
+        await ProductoService.ObtenerProductosAsync(searchText);
     }
 }
