@@ -104,8 +104,22 @@ app.MapPut("/carritos/{id}/confirmar", async (string id, ClienteDTO cliente, Tie
             PrecioUnitario = i.PrecioUnitario
         }).ToList()
     };
+    
 
-    foreach (var item in items) {
+    app.MapPut("/productos/{id}/descontarStock", async ([FromRoute] int id, [FromQuery] int cantidad, TiendaContext db) =>
+    {
+        var producto = await db.Productos.FindAsync(id);
+        if (producto == null) return Results.NotFound();
+
+        if (producto.Stock < cantidad)
+            return Results.BadRequest("Producto no encontrado");
+        await db.SaveChangesAsync();
+
+        return Results.Ok(producto);
+    });
+
+    foreach (var item in items)
+    {
         var producto = await db.Productos.FindAsync(item.ProductoId);
         if (producto == null || producto.Stock < item.Cantidad)
             return Results.BadRequest("Stock insuficiente");

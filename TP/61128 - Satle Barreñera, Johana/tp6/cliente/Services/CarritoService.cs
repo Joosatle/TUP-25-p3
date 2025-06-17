@@ -112,6 +112,20 @@ public class CarritoService
         }
     }
 
+
+
+
+    public async Task DescontarStockAsync(int productoId, int cantidad)
+    {
+        var response = await httpClient.PutAsync(
+            $"productos/{productoId}/descontarStock?cantidad={cantidad}", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            Console.WriteLine($"Error al descontar stock: {response.StatusCode}");
+        }
+    }
+
     // --- MANTENIENDO TU MÉTODO ORIGINAL DE ELIMINAR, SINCRONIZANDO CON BACKEND ---
     public async Task EliminarProducto(int id)
     {
