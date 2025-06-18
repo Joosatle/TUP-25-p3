@@ -73,18 +73,9 @@ public class CarritoService
         var existenteLocal = ProductosEnCarrito.FirstOrDefault(p => p.Id == producto.Id);
         int nuevaCantidad = (existenteLocal?.Cantidad ?? 0) + 1;
 
-        //. Descontar el stock del producto en el backend
-        var stockResponse = await _http.PutAsync($"/productos/{producto.Id}/descontarStock?cantidad=1", null);
-
-        if (!stockResponse.IsSuccessStatusCode)
-        {
-            string errorContent = await stockResponse.Content.ReadAsStringAsync();
-            Console.WriteLine($"ERROR: No se pudo descontar el stock. {stockResponse.StatusCode} - {errorContent}");
-            return; // ⚠️ No seguimos si no se puede descontar
-        }
 
         // Llama al endpoint PUT /carritos/{id}/{productoId}?cantidad={cantidad}
-        var response = await _http.PutAsync($"/carritos/{carritoId}/{producto.Id}?cantidad={nuevaCantidad}", null);
+        var response = await _http.PutAsync($"/carritos/{carritoId}/{producto.Id}?cantidadNueva={nuevaCantidad}", null);
 
         if (response.IsSuccessStatusCode)
         {
@@ -137,96 +128,105 @@ public class CarritoService
     }
 
     // --- MANTENIENDO TU MÉTODO ORIGINAL DE ELIMINAR, SINCRONIZANDO CON BACKEND ---
-    public async Task EliminarProducto(int id)
+   public async Task EliminarProducto(int id)
+{
+    if (carritoId == null)
     {
-        if (carritoId == null)
-        {
-            Console.WriteLine("DEBUG: No hay carrito activo para eliminar producto.");
-            return;
-        }
-
-        // 1. Eliminar del backend
-        var response = await _http.DeleteAsync($"/carritos/{carritoId}/{id}");
-
-        if (response.IsSuccessStatusCode)
-        {
-            // 2. Si tuvo éxito en el backend, elimina de la lista local
-            var producto = ProductosEnCarrito.FirstOrDefault(p => p.Id == id);
-            if (producto != null)
-            {
-                ProductosEnCarrito.Remove(producto);
-            }
-            OnChange?.Invoke();
-            Console.WriteLine($"DEBUG: Producto con ID {id} eliminado del carrito.");
-        }
-        else
-        {
-            string errorContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Error al eliminar producto del carrito (backend): {response.StatusCode} - {errorContent}");
-        }
+        Console.WriteLine("DEBUG: No hay carrito activo para eliminar producto.");
+        return;
     }
+
+    var producto = ProductosEnCarrito.FirstOrDefault(p => p.Id == id);
+    if (producto == null) return;
+
+    // 1. Eliminar del backend
+    var response = await _http.DeleteAsync($"/carritos/{carritoId}/{id}");
+
+    if (response.IsSuccessStatusCode)
+    {
+   
+        // 3. Eliminar de la lista local
+        ProductosEnCarrito.Remove(producto);
+        OnChange?.Invoke();
+        Console.WriteLine($"DEBUG: Producto con ID {id} eliminado y stock repuesto.");
+    }
+    else
+    {
+        string errorContent = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"Error al eliminar producto del carrito (backend): {response.StatusCode} - {errorContent}");
+    }
+}
 
     // --- MANTENIENDO TUS MÉTODOS DE CANTIDAD, PERO CONSINCRONIZACIÓN BÁSICA ---
     public async Task AumentarCantidad(int id)
+{
+    var productoLocal = ProductosEnCarrito.FirstOrDefault(p => p.Id == id);
+    if (productoLocal != null)
     {
-        var productoLocal = ProductosEnCarrito.FirstOrDefault(p => p.Id == id);
-        if (productoLocal != null)
-        {
-            // Asumimos que el stock ya se redujo al agregar inicialmente, o que el backend lo controla.
-            // Aquí simplemente aumentamos la cantidad y llamamos al backend con la nueva cantidad total.
-            int nuevaCantidad = productoLocal.Cantidad + 1;
+        int nuevaCantidad = productoLocal.Cantidad + 1;
 
-            // Llama al backend para actualizar la cantidad
-            if (carritoId == null) return; // No hay carrito activo
-            var response = await _http.PutAsync($"/carritos/{carritoId}/{productoLocal.Id}?cantidad={nuevaCantidad}", null);
+        if (carritoId == null) return;
+
+        var response = await _http.PutAsync(
+            $"/carritos/{carritoId}/{productoLocal.Id}?cantidadNueva={nuevaCantidad}", null); // 🔸Este nombre debe ser exacto
+
+        if (response.IsSuccessStatusCode)
+        {
+            productoLocal.Cantidad = nuevaCantidad;
+            OnChange?.Invoke();
+            Console.WriteLine($"DEBUG: Cantidad aumentada a {nuevaCantidad}.");
+        }
+        else
+        {
+            Console.WriteLine($"Error al actualizar cantidad en backend: {response.StatusCode}");
+        }
+    }
+}
+
+    public async Task DisminuirCantidad(int id)
+{
+    var productoLocal = ProductosEnCarrito.FirstOrDefault(p => p.Id == id);
+    if (productoLocal != null)
+    {
+        if (productoLocal.Cantidad > 1)
+        {
+            int nuevaCantidad = productoLocal.Cantidad - 1;
+
+            // Paso 2: Actualizar cantidad en backend (⚠️ cambio clave aquí)
+            if (carritoId == null) return;
+
+            var response = await _http.PutAsync(
+                $"/carritos/{carritoId}/{productoLocal.Id}?cantidadNueva={nuevaCantidad}", null); // ✅
 
             if (response.IsSuccessStatusCode)
             {
-                productoLocal.Cantidad = nuevaCantidad; // Actualiza solo si el backend tuvo éxito
+                productoLocal.Cantidad = nuevaCantidad;
                 OnChange?.Invoke();
-                Console.WriteLine($"DEBUG: Cantidad de {productoLocal.Nombre} aumentada a {nuevaCantidad}.");
+                Console.WriteLine($"DEBUG: Cantidad de {productoLocal.Nombre} disminuida a {nuevaCantidad}.");
             }
             else
             {
-                string errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error al aumentar cantidad (backend): {response.StatusCode} - {errorContent}");
+                Console.WriteLine($"Error al actualizar cantidad en backend: {response.StatusCode}");
             }
         }
-    }
-
-    public async Task DisminuirCantidad(int id)
-    {
-        var productoLocal = ProductosEnCarrito.FirstOrDefault(p => p.Id == id);
-        if (productoLocal != null)
+        else
         {
-            if (productoLocal.Cantidad > 1)
-            {
-                int nuevaCantidad = productoLocal.Cantidad - 1;
-
-                // Llama al backend para actualizar la cantidad
-                if (carritoId == null) return; // No hay carrito activo
-                var response = await _http.PutAsync($"/carritos/{carritoId}/{productoLocal.Id}?cantidad={nuevaCantidad}", null);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    productoLocal.Cantidad = nuevaCantidad; // Actualiza solo si el backend tuvo éxito
-                    OnChange?.Invoke();
-                    Console.WriteLine($"DEBUG: Cantidad de {productoLocal.Nombre} disminuida a {nuevaCantidad}.");
-                }
-                else
-                {
-                    string errorContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"Error al disminuir cantidad (backend): {response.StatusCode} - {errorContent}");
-                }
-            }
-            else // Si la cantidad es 1 y se disminuye, eliminar el producto
-            {
-                await EliminarProducto(id); // Reutiliza tu método EliminarProducto
-                Console.WriteLine($"DEBUG: Producto con ID {id} eliminado al disminuir cantidad a 0.");
-            }
+            // Si cantidad es 1, eliminar el producto (ya repone stock)
+            await EliminarProducto(id);
+            Console.WriteLine($"DEBUG: Producto con ID {id} eliminado al disminuir cantidad a 0.");
         }
     }
+}
 
+
+    // --- MANTENIENDO TU MÉTODO ORIGINAL DE LIMPIAR ---
+    // Este método solo limpia la lista local, no el carrito en el backend.
+    // Para limpiar el carrito del backend, necesitarías un endpoint y una llamada PUT/DELETE específica.
+    public void LimpiarCarrito()
+    {
+        ProductosEnCarrito.Clear();
+        OnChange?.Invoke();
+    }
 
     public decimal CalcularTotal() =>
         ProductosEnCarrito.Sum(p => p.Precio * p.Cantidad);
