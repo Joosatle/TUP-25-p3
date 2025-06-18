@@ -229,3 +229,95 @@ body {
     text-align: right;
     margin-top: 10px;
 }
+
+/*Estilos para Confirmacion.razor*/
+
+/* Centrado del contenido */
+.titulo-confirmacion {
+    text-align: center;
+    margin-top: 30px;
+    font-size: 28px;
+    color: #28a745;
+}
+
+.mensaje-vacio {
+    text-align: center;
+    font-size: 18px;
+    margin-top: 40px;
+    color: #d9534f;
+}
+
+/* Contenedor general */
+.contenedor-formulario {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Títulos */
+.subtitulo {
+    font-size: 20px;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+/* Lista resumen */
+.resumen-compra {
+    list-style-type: disc;
+    padding-left: 20px;
+    margin-bottom: 30px;
+}
+
+/* Campos */
+.campo {
+    margin-bottom: 20px;
+}
+
+.campo label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.entrada {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.mensaje-error {
+    color: #d9534f;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+/* Botón */
+.boton-confirmar {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.boton-confirmar:hover {
+    background-color: #218838;
+}
+
+/* Errores */
+.errores-validacion {
+    color: #d9534f;
+    margin-bottom: 15px;
+    text-align: center;
+}
